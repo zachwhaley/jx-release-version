@@ -317,7 +317,6 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 				versionsRaw[i] = tag
 			}
 		}
-
 	}
 
 	// turn the array into a new collection of versions that we can sort
