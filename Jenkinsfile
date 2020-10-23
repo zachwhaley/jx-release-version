@@ -2,7 +2,7 @@
 
 pipeline {
     agent {
-        label 'c1ns-build'
+        docker 'golang:1.15'
     }
 
     options {
@@ -14,6 +14,8 @@ pipeline {
         RELEASE_BRANCH = 'main'
         OWNER_CHANNEL = 'microwave'
         BUILD_VERSION = buildVersion releaseBranch: RELEASE_BRANCH
+
+        GOCACHE = "${WORKSPACE}"
     }
 
     stages {
@@ -25,23 +27,22 @@ pipeline {
 
         stage('Test') {
             steps {
-                inUtilContainer {
-                    sh 'make check'
-                }
+                sh 'make test'
             }
         }
 
         stage('Build') {
             steps {
-                inUtilContainer {
-                    sh 'make build'
-                }
+                sh 'make build'
             }
         }
 
         stage('Release') {
             when {
                 branch RELEASE_BRANCH
+            }
+            agent {
+                label 'c1ns-build'
             }
 
             steps {
