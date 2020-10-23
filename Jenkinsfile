@@ -2,7 +2,7 @@
 
 pipeline {
     agent {
-        label 'c1ns-build'
+        docker 'golang:1.15'
     }
 
     options {
@@ -25,23 +25,22 @@ pipeline {
 
         stage('Test') {
             steps {
-                inUtilContainer {
-                    sh 'make check'
-                }
+                sh 'make check'
             }
         }
 
         stage('Build') {
             steps {
-                inUtilContainer {
-                    sh 'make build'
-                }
+                sh 'make build'
             }
         }
 
         stage('Release') {
             when {
                 branch RELEASE_BRANCH
+            }
+            agent {
+                label 'c1ns-build'
             }
 
             steps {
