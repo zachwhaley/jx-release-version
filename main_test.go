@@ -44,7 +44,7 @@ func TestSetupCfg(t *testing.T) {
 	assert.Equal(t, "1.2.3", v, "error with getVersion for a setup.cfg")
 }
 
-func TestSetupPyStandard(t *testing.T) {
+func TestSetupPy(t *testing.T) {
 
 	r := RelVer{
 		dir: "test-resources/python/standard",

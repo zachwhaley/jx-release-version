@@ -259,6 +259,7 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 	// if repo isn't provided by flags fall back to using current repo if run from a git project
 	var versionsRaw []string
 	if r.ghOwner != "" && r.ghRepository != "" {
+		fmt.Printf("zach 1\n")
 		ctx := context.Background()
 
 		tags, err := gitClient.ListTags(ctx, r.ghOwner, r.ghRepository)
@@ -280,6 +281,7 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 			versionsRaw[i] = tag.Name
 		}
 	} else {
+		fmt.Printf("zach 2\n")
 		_, err := exec.LookPath("git")
 		if err != nil {
 			return "", fmt.Errorf("error running git: %v", err)
