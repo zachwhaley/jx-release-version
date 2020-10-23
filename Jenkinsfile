@@ -15,7 +15,7 @@ pipeline {
         OWNER_CHANNEL = 'microwave'
         BUILD_VERSION = buildVersion releaseBranch: RELEASE_BRANCH
 
-        GOCACHE = "${JENKINS_HOME}"
+        GOCACHE = "${WORKSPACE}"
     }
 
     stages {
