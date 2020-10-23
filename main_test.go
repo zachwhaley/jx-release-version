@@ -11,10 +11,10 @@ import (
 )
 
 func TestGradle(t *testing.T) {
-	c := config{
+	r := RelVer{
 		dir: "test-resources/java",
 	}
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -22,10 +22,10 @@ func TestGradle(t *testing.T) {
 }
 
 func TestPackageJSON(t *testing.T) {
-	c := config{
+	r := RelVer{
 		dir: "test-resources/nodejs",
 	}
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -34,10 +34,10 @@ func TestPackageJSON(t *testing.T) {
 
 func TestSetupCfg(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		dir: "test-resources/python/setup.cfg",
 	}
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -46,10 +46,10 @@ func TestSetupCfg(t *testing.T) {
 
 func TestSetupPyStandard(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		dir: "test-resources/python/standard",
 	}
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -58,10 +58,10 @@ func TestSetupPyStandard(t *testing.T) {
 
 func TestSetupPyNested(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		dir: "test-resources/python/nested",
 	}
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -70,10 +70,10 @@ func TestSetupPyNested(t *testing.T) {
 
 func TestSetupPyOneLine(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		dir: "test-resources/python/one_line",
 	}
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -81,11 +81,11 @@ func TestSetupPyOneLine(t *testing.T) {
 }
 
 func TestMakefile(t *testing.T) {
-	c := config{
+	r := RelVer{
 		dir: "test-resources/make",
 	}
 
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -94,11 +94,11 @@ func TestMakefile(t *testing.T) {
 
 func TestCMakefile(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		dir: "test-resources/cmake",
 	}
 
-	v, err := getVersion(c)
+	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
@@ -106,7 +106,7 @@ func TestCMakefile(t *testing.T) {
 }
 
 func TestGetNewVersionFromTagCurrentRepo(t *testing.T) {
-	c := config{
+	r := RelVer{
 		dryrun: false,
 		dir:    "test-resources/make",
 	}
@@ -114,8 +114,8 @@ func TestGetNewVersionFromTagCurrentRepo(t *testing.T) {
 	tags := createTags()
 
 	mockClient := &mocks.GitClient{}
-	mockClient.On("ListTags", context.Background(), c.ghOwner, c.ghRepository).Return(tags, nil)
-	v, err := getNewVersionFromTag(c, mockClient)
+	mockClient.On("ListTags", context.Background(), r.ghOwner, r.ghRepository).Return(tags, nil)
+	v, err := r.getNewVersionFromTag(mockClient)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "1.2.1", v, "error bumping a patch version")
@@ -123,19 +123,19 @@ func TestGetNewVersionFromTagCurrentRepo(t *testing.T) {
 
 /* Disable GitHub test
 func TestGetGitTag(t *testing.T) {
-	c := config{
+	r := RelVer{
 		ghOwner:      "jenkins-x",
 		ghRepository: "release-version",
 	}
 
-	gitHubClient := adapters.NewGitHubClient(c.debug)
+	gitHubClient := adapters.NewGitHubClient(r.debug)
 
-	expectedVersion, err := getLatestTag(c, gitHubClient)
+	expectedVersion, err := getLatestTag(r, gitHubClient)
 	assert.NoError(t, err)
 
-	c = config{}
+	r = RelVer{}
 
-	v, err := getLatestTag(c, gitHubClient)
+	v, err := getLatestTag(r, gitHubClient)
 
 	assert.NoError(t, err)
 
@@ -144,7 +144,7 @@ func TestGetGitTag(t *testing.T) {
 
 func TestGetNewMinorVersionFromGitHubTag(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		ghOwner:      "rawlingsj",
 		ghRepository: "semver-release-version",
 		minor:        true,
@@ -153,9 +153,9 @@ func TestGetNewMinorVersionFromGitHubTag(t *testing.T) {
 	tags := createTags()
 
 	mockClient := &mocks.GitClient{}
-	mockClient.On("ListTags", context.Background(), c.ghOwner, c.ghRepository).Return(tags, nil)
+	mockClient.On("ListTags", context.Background(), r.ghOwner, r.ghRepository).Return(tags, nil)
 
-	v, err := getNewVersionFromTag(c, mockClient)
+	v, err := getNewVersionFromTag(r, mockClient)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "1.1.0", v, "error bumping a minor version")
@@ -163,7 +163,7 @@ func TestGetNewMinorVersionFromGitHubTag(t *testing.T) {
 
 func TestGetNewPatchVersionFromGitHubTag(t *testing.T) {
 
-	c := config{
+	r := RelVer{
 		ghOwner:      "rawlingsj",
 		ghRepository: "semver-release-version",
 	}
@@ -171,9 +171,9 @@ func TestGetNewPatchVersionFromGitHubTag(t *testing.T) {
 	tags := createTags()
 
 	mockClient := &mocks.GitClient{}
-	mockClient.On("ListTags", context.Background(), c.ghOwner, c.ghRepository).Return(tags, nil)
+	mockClient.On("ListTags", context.Background(), r.ghOwner, r.ghRepository).Return(tags, nil)
 
-	v, err := getNewVersionFromTag(c, mockClient)
+	v, err := getNewVersionFromTag(r, mockClient)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "1.0.18", v, "error bumping a patch version")
