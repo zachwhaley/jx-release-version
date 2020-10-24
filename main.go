@@ -111,7 +111,13 @@ func (r NewRelVer) getVersion() (string, error) {
 	}
 
 	if gradle, err := r.findVersionFile("versions.gradle"); err == nil {
-		return r.getGradleVersion(gradle)
+		return r.getVersionsGradleVersion(gradle)
+	}
+	if gradle, err := r.findVersionFile("build.gradle"); err == nil {
+		return r.getBuildGradleVersion(gradle)
+	}
+	if gradle, err := r.findVersionFile("build.gradle.kts"); err == nil {
+		return r.getBuildGradleVersion(gradle)
 	}
 	if pkgjson, err := r.findVersionFile("package.json"); err == nil {
 		return r.getPackageJSONVersion(pkgjson)
@@ -122,21 +128,36 @@ func (r NewRelVer) getVersion() (string, error) {
 	if setupPy, err := r.findVersionFile("setup.py"); err == nil {
 		return r.getSetupPyVersion(setupPy)
 	}
-	if makefile, err := r.findVersionFile("Makefile"); err == nil {
-		return r.getMakefileVersion(makefile)
-	}
 	if cmake, err := r.findVersionFile("CMakeLists.txt"); err == nil {
 		return r.getCMakeVersion(cmake)
+	}
+	if makefile, err := r.findVersionFile("Makefile"); err == nil {
+		return r.getMakefileVersion(makefile)
 	}
 
 	return "0.0.0", errors.New("No recognised file to obtain current version from")
 }
 
-func (r NewRelVer) getGradleVersion(gradle []byte) (string, error) {
+func (r NewRelVer) getVersionsGradleVersion(gradle []byte) (string, error) {
 	scanner := bufio.NewScanner(strings.NewReader(string(gradle)))
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), "project.version") {
 			re := regexp.MustCompile("^\\s*project\\.version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]")
+			matched := re.FindStringSubmatch(scanner.Text())
+			if len(matched) > 0 {
+				version := strings.TrimSpace(matched[1])
+				return version, nil
+			}
+		}
+	}
+	return "0.0.0", errors.New("No version found")
+}
+
+func (r NewRelVer) getBuildGradleVersion(gradle []byte) (string, error) {
+	scanner := bufio.NewScanner(strings.NewReader(string(gradle)))
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "version") {
+			re := regexp.MustCompile("^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]")
 			matched := re.FindStringSubmatch(scanner.Text())
 			if len(matched) > 0 {
 				version := strings.TrimSpace(matched[1])

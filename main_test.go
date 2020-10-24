@@ -10,15 +10,37 @@ import (
 	"github.com/zachwhaley/new-release-version/mocks"
 )
 
-func TestGradle(t *testing.T) {
+func TestVersionsGradle(t *testing.T) {
 	r := NewRelVer{
-		dir: "test-resources/java",
+		dir: "test-resources/java/versions.gradle",
 	}
 	v, err := r.getVersion()
 
 	assert.NoError(t, err)
 
 	assert.Equal(t, "1.2.3", v, "error with getVersion for a versions.gradle")
+}
+
+func TestBuildGradle(t *testing.T) {
+	r := NewRelVer{
+		dir: "test-resources/java/build.gradle",
+	}
+	v, err := r.getVersion()
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, "1.2.3-SNAPSHOT", v, "error with getVersion for a build.gradle")
+}
+
+func TestBuildGradleKTS(t *testing.T) {
+	r := NewRelVer{
+		dir: "test-resources/kotlin",
+	}
+	v, err := r.getVersion()
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, "1.2.3", v, "error with getVersion for a build.gradle.kts")
 }
 
 func TestPackageJSON(t *testing.T) {
