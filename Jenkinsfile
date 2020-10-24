@@ -14,6 +14,8 @@ pipeline {
         RELEASE_BRANCH = 'main'
         OWNER_CHANNEL = 'microwave'
         BUILD_VERSION = buildVersion releaseBranch: RELEASE_BRANCH
+
+        GOCACHE = '/go/.cache'
     }
 
     stages {
