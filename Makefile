@@ -1,6 +1,6 @@
 NAME := new-release-version
 ORG := zachwhaley
-VERSION := 1.0.0
+VERSION := 2.0.0
 ROOT_PACKAGE := main.go
 
 BUILD_DIR ?= bin
