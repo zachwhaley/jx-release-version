@@ -45,8 +45,6 @@ Then in your release pipeline do something like this:
 ```sh
     ➜ RELEASE_VERSION=$(new-release-version)
     ➜ echo "New release version ${RELEASE_VERSION}
-    ➜ mvn versions:set -DnewVersion=${RELEASE_VERSION}
-    ➜ git commit -a -m 'release ${RELEASE_VERSION}'
     ➜ git tag -fa v${RELEASE_VERSION} -m 'Release version ${RELEASE_VERSION}'
     ➜ git push origin v${RELEASE_VERSION}
 ```
