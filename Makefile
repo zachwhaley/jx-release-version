@@ -1,20 +1,17 @@
 NAME := new-release-version
 ORG := zachwhaley
 VERSION := 2.0.0
-ROOT_PACKAGE := main.go
 
-BUILD_DIR ?= bin
-
-all: test build
+all: build test
 
 .PHONY: test
 test:
-	go test -v
+	go test -v .
 
 .PHONY: build
 build:
-	go build -o $(BUILD_DIR)/$(NAME)
+	go build -v .
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR)
+	-$(RM) $(NAME)
