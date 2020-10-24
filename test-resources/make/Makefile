@@ -1,3 +1,3 @@
 NAME := new-release-version
 ORG := zachwhaley
-VERSION := 1.2.0-SNAPSHOT
+VERSION := 99.0.0-SNAPSHOT
