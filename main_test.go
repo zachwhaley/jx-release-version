@@ -109,6 +109,7 @@ func TestGetNewVersionFromTagCurrentRepo(t *testing.T) {
 	r := RelVer{
 		dryrun: false,
 		dir:    "test-resources/make",
+		debug:  true,
 	}
 
 	tags := createTags()

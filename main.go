@@ -98,7 +98,11 @@ Build Date: %s
 }
 
 func (r RelVer) findVersionFile(f string) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(r.dir, f))
+	data, err := ioutil.ReadFile(filepath.Join(r.dir, f))
+	if err != nil && r.debug {
+		fmt.Printf("found %s\n", f)
+	}
+	return data, err
 }
 
 func (r RelVer) getVersion() (string, error) {
@@ -129,9 +133,6 @@ func (r RelVer) getVersion() (string, error) {
 }
 
 func (r RelVer) getGradleVersion(gradle []byte) (string, error) {
-	if r.debug {
-		fmt.Println("found versions.gradle")
-	}
 	scanner := bufio.NewScanner(strings.NewReader(string(gradle)))
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), "version") {
@@ -147,24 +148,15 @@ func (r RelVer) getGradleVersion(gradle []byte) (string, error) {
 }
 
 func (r RelVer) getPackageJSONVersion(pkgjson []byte) (string, error) {
-	if r.debug {
-		fmt.Println("found package.json")
-	}
 	var project Project
 	_ = json.Unmarshal(pkgjson, &project)
 	if project.Version != "" {
-		if r.debug {
-			fmt.Println(fmt.Sprintf("existing version %v", project.Version))
-		}
 		return project.Version, nil
 	}
 	return "0.0.0", errors.New("No version found")
 }
 
 func (r RelVer) getSetupCfgVersion(setupCfg []byte) (string, error) {
-	if r.debug {
-		fmt.Println("Found setup.cfg")
-	}
 	scanner := bufio.NewScanner(strings.NewReader(string(setupCfg)))
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), "version") {
@@ -181,10 +173,6 @@ func (r RelVer) getSetupCfgVersion(setupCfg []byte) (string, error) {
 }
 
 func (r RelVer) getSetupPyVersion(setup []byte) (string, error) {
-	if r.debug {
-		fmt.Println("Found setup.py")
-	}
-
 	// Regex to find the call to `setup(..., version='1.2.3', ...)`
 	re := regexp.MustCompile("setup\\((.|\\n)*version\\s*=\\s*'(\\d|\\.)*'([^\\)]|\\n)*\\)")
 	setupCallBytes := re.Find(setup)
@@ -200,9 +188,6 @@ func (r RelVer) getSetupPyVersion(setup []byte) (string, error) {
 		v := strings.TrimPrefix(strings.TrimSuffix(parts[1], "'"), "'")
 
 		if v != "" {
-			if r.debug {
-				fmt.Println(fmt.Sprintf("existing Makefile version %v", v))
-			}
 			return v, nil
 		}
 	}
@@ -210,9 +195,6 @@ func (r RelVer) getSetupPyVersion(setup []byte) (string, error) {
 }
 
 func (r RelVer) getMakefileVersion(makefile []byte) (string, error) {
-	if r.debug {
-		fmt.Println("Found Makefile")
-	}
 	scanner := bufio.NewScanner(strings.NewReader(string(makefile)))
 	for scanner.Scan() {
 		if strings.HasPrefix(scanner.Text(), "VERSION") || strings.HasPrefix(scanner.Text(), "VERSION ") || strings.HasPrefix(scanner.Text(), "VERSION:") || strings.HasPrefix(scanner.Text(), "VERSION=") {
@@ -220,9 +202,6 @@ func (r RelVer) getMakefileVersion(makefile []byte) (string, error) {
 
 			v := strings.TrimSpace(parts[1])
 			if v != "" {
-				if r.debug {
-					fmt.Println(fmt.Sprintf("existing Makefile version %v", v))
-				}
 				return v, nil
 			}
 		}
@@ -231,10 +210,6 @@ func (r RelVer) getMakefileVersion(makefile []byte) (string, error) {
 }
 
 func (r RelVer) getCMakeVersion(cmake []byte) (string, error) {
-	if r.debug {
-		fmt.Println("CMakeLists.txt")
-	}
-
 	scanner := bufio.NewScanner(strings.NewReader(string(cmake)))
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), " VERSION ") {
@@ -242,9 +217,6 @@ func (r RelVer) getCMakeVersion(cmake []byte) (string, error) {
 			matched := re.FindStringSubmatch(scanner.Text())
 			v := strings.TrimSpace(matched[3])
 			if v != "" {
-				if r.debug {
-					fmt.Println(fmt.Sprintf("existing CMakeLists.txt version %v", v))
-				}
 				return v, nil
 			}
 		}
@@ -256,10 +228,13 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 	// Get base version from file, will fallback to 0.0.0 if not found.
 	baseVersion, _ := r.getVersion()
 
+	if r.debug {
+		fmt.Printf("base version: %s\n", baseVersion)
+	}
+
 	// if repo isn't provided by flags fall back to using current repo if run from a git project
 	var versionsRaw []string
 	if r.ghOwner != "" && r.ghRepository != "" {
-		fmt.Printf("zach 1\n")
 		ctx := context.Background()
 
 		tags, err := gitClient.ListTags(ctx, r.ghOwner, r.ghRepository)
@@ -276,12 +251,11 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 		versionsRaw = make([]string, len(tags))
 		for i, tag := range tags {
 			if r.debug {
-				fmt.Println(fmt.Sprintf("found remote tag %s", tag.Name))
+				fmt.Printf("found remote tag %s\n", tag.Name)
 			}
 			versionsRaw[i] = tag.Name
 		}
 	} else {
-		fmt.Printf("zach 2\n")
 		_, err := exec.LookPath("git")
 		if err != nil {
 			return "", fmt.Errorf("error running git: %v", err)
@@ -312,7 +286,7 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 		versionsRaw = make([]string, len(tags))
 		for i, tag := range tags {
 			if r.debug {
-				fmt.Println(fmt.Sprintf("found tag %s", tag))
+				fmt.Printf("found tag %s\n", tag)
 			}
 			tag = strings.TrimPrefix(tag, "v")
 			if tag != "" {
@@ -349,7 +323,7 @@ func (r RelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 	// return the latest tag
 	col := version.Collection(versions)
 	if r.debug {
-		fmt.Printf("version collection %v \n", col)
+		fmt.Printf("version collection %v\n", col)
 	}
 
 	sort.Sort(col)
