@@ -18,13 +18,13 @@ Using a git tag to work out the next release version is better than traditional 
 
 - If your project is new or has no existing git tags then running `new-release-version` will return a default version of `0.0.1`
 
-- If your latest git tag is `1.2.3` and you Makefile or pom.xml is `1.2.0-SNAPSHOT` then `new-release-version` will return `1.2.4`
+- If your latest git tag is `1.2.3` and your version file is `1.2.0-SNAPSHOT` then `new-release-version` will return `1.2.4`
 
-- If your latest git tag is `1.2.3` and your Makefile or pom.xml is `2.0.0` then `new-release-version` will return `2.0.0`
+- If your latest git tag is `1.2.3` and your version file is `2.0.0` then `new-release-version` will return `2.0.0`
 
-- If you need to support an old release for example 7.0.x and tags for new realese 7.1.x already exist, the `-same-release` flag  will help to obtain version from 7.0.x release. If the pom file version is 7.0.0-SNAPSHOT and both the 7.1.0 and 7.0.2 tags exist the command `new-release-version` will return 7.1.1 but if we run `new-release-version -same-release` it will return 7.0.3
+- If you need to support an old release for example 7.0.x and tags for new realese 7.1.x already exist, the `-same-release` flag  will help to obtain version from 7.0.x release. If the version file version is 7.0.0-SNAPSHOT and both the 7.1.0 and 7.0.2 tags exist the command `new-release-version` will return 7.1.1 but if we run `new-release-version -same-release` it will return 7.0.3
 
-- If you need to get a release version `1.1.0` for older release and your last tag is `1.2.3` please change your Makefile or pom.xml to `1.1.0-SNAPSHOT` and run `new-release-version -same-release`
+- If you need to get a release version `1.1.0` for older release and your last tag is `1.2.3` please change your version file to `1.1.0-SNAPSHOT` and run `new-release-version -same-release`
 
 ## Example Makefile
 

@@ -32,10 +32,6 @@ var GitTag string
 // BuildDate is the date when the build was created
 var BuildDate string
 
-type Project struct {
-	Version string `xml:"version"`
-}
-
 type NewRelVer struct {
 	dryrun       bool
 	debug        bool
@@ -47,16 +43,35 @@ type NewRelVer struct {
 	minor        bool
 }
 
+type findVersion func(NewRelVer, []byte) (string, error)
+
+func versionMatcher(key, regex string, group int) findVersion {
+	return func(r NewRelVer, file []byte) (string, error) {
+		return r.matchVersion(file, key, regex, group)
+	}
+}
+
+var versionFiles = map[string]findVersion{
+	"versions.gradle":  versionMatcher("project.version", "^\\s*project\\.version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
+	"build.gradle":     versionMatcher("version", "^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
+	"build.gradle.kts": versionMatcher("version", "^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
+	"package.json":     NewRelVer.getPackageJSONVersion,
+	"setup.cfg":        versionMatcher("version", "^version\\s*=\\s*([.\\d]+(-\\w+)?)", 1),
+	"setup.py":         NewRelVer.getSetupPyVersion,
+	"CMakeLists.txt":   versionMatcher(" VERSION ", "project\\s*(([^\\s]+)\\s+VERSION\\s+([.\\d]+(-\\w+)?).*)", 3),
+	"Makefile":         NewRelVer.getMakefileVersion,
+}
+
 func main() {
 
 	debug := flag.Bool("debug", false, "prints debug into to console")
-	dir := flag.String("folder", ".", "the folder to look for files that contain a pom.xml or Makefile with the project version to bump")
-	owner := flag.String("gh-owner", "", "a github repository owner if not running from within a git project  e.g. fabric8io")
-	repo := flag.String("gh-repository", "", "a git repository if not running from within a git project  e.g. fabric8")
-	baseVersion := flag.String("base-version", "", "use this instead of Makefile, pom.xml, etc, e.g. -base-version=2.0.0-SNAPSHOT")
+	dir := flag.String("directory", ".", "the directory to look for version files with the project version to bump")
+	owner := flag.String("gh-owner", "", "a github repository owner if not running from within a git project")
+	repo := flag.String("gh-repository", "", "a github repository if not running from within a git project")
+	baseVersion := flag.String("base-version", "", "version to use instead of version file")
 	samerelease := flag.Bool("same-release", false, "for support old releases: for example 7.0.x and tag for new release 7.1.x already exist, with `-same-release` argument next version from 7.0.x will be returned ")
 	ver := flag.Bool("version", false, "prints the version")
-	minor := flag.Bool("minor", false, "increase minor version instead of patch")
+	minor := flag.Bool("minor", false, "increment minor version instead of patch")
 	flag.Parse()
 
 	if *ver {
@@ -97,6 +112,18 @@ Build Date: %s
 `, Version, GitTag, BuildDate)
 }
 
+func (r NewRelVer) getVersion() (string, error) {
+	if r.baseVersion != "" {
+		return r.baseVersion, nil
+	}
+	for verFile, verFunc := range versionFiles {
+		if file, err := r.findVersionFile(verFile); err == nil {
+			return verFunc(r, file)
+		}
+	}
+	return "0.0.0", errors.New("No recognised file to obtain current version from")
+}
+
 func (r NewRelVer) findVersionFile(f string) ([]byte, error) {
 	data, err := ioutil.ReadFile(filepath.Join(r.dir, f))
 	if err != nil && r.debug {
@@ -105,62 +132,14 @@ func (r NewRelVer) findVersionFile(f string) ([]byte, error) {
 	return data, err
 }
 
-func (r NewRelVer) getVersion() (string, error) {
-	if r.baseVersion != "" {
-		return r.baseVersion, nil
-	}
-
-	if gradle, err := r.findVersionFile("versions.gradle"); err == nil {
-		return r.getVersionsGradleVersion(gradle)
-	}
-	if gradle, err := r.findVersionFile("build.gradle"); err == nil {
-		return r.getBuildGradleVersion(gradle)
-	}
-	if gradle, err := r.findVersionFile("build.gradle.kts"); err == nil {
-		return r.getBuildGradleVersion(gradle)
-	}
-	if pkgjson, err := r.findVersionFile("package.json"); err == nil {
-		return r.getPackageJSONVersion(pkgjson)
-	}
-	if setupCfg, err := r.findVersionFile("setup.cfg"); err == nil {
-		return r.getSetupCfgVersion(setupCfg)
-	}
-	if setupPy, err := r.findVersionFile("setup.py"); err == nil {
-		return r.getSetupPyVersion(setupPy)
-	}
-	if cmake, err := r.findVersionFile("CMakeLists.txt"); err == nil {
-		return r.getCMakeVersion(cmake)
-	}
-	if makefile, err := r.findVersionFile("Makefile"); err == nil {
-		return r.getMakefileVersion(makefile)
-	}
-
-	return "0.0.0", errors.New("No recognised file to obtain current version from")
-}
-
-func (r NewRelVer) getVersionsGradleVersion(gradle []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(gradle)))
+func (r NewRelVer) matchVersion(data []byte, key, regex string, group int) (string, error) {
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "project.version") {
-			re := regexp.MustCompile("^\\s*project\\.version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]")
+		if strings.Contains(scanner.Text(), key) {
+			re := regexp.MustCompile(regex)
 			matched := re.FindStringSubmatch(scanner.Text())
 			if len(matched) > 0 {
-				version := strings.TrimSpace(matched[1])
-				return version, nil
-			}
-		}
-	}
-	return "0.0.0", errors.New("No version found")
-}
-
-func (r NewRelVer) getBuildGradleVersion(gradle []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(gradle)))
-	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "version") {
-			re := regexp.MustCompile("^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]")
-			matched := re.FindStringSubmatch(scanner.Text())
-			if len(matched) > 0 {
-				version := strings.TrimSpace(matched[1])
+				version := strings.TrimSpace(matched[group])
 				return version, nil
 			}
 		}
@@ -169,27 +148,13 @@ func (r NewRelVer) getBuildGradleVersion(gradle []byte) (string, error) {
 }
 
 func (r NewRelVer) getPackageJSONVersion(pkgjson []byte) (string, error) {
-	var project Project
+	var project struct {
+		Version string `xml:"version"`
+	}
 	_ = json.Unmarshal(pkgjson, &project)
 	if project.Version != "" {
 		return project.Version, nil
 	}
-	return "0.0.0", errors.New("No version found")
-}
-
-func (r NewRelVer) getSetupCfgVersion(setupCfg []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(setupCfg)))
-	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "version") {
-			re := regexp.MustCompile("^version\\s*=\\s*([.\\d]+(-\\w+)?)")
-			matched := re.FindStringSubmatch(scanner.Text())
-			if len(matched) > 0 {
-				version := strings.TrimSpace(matched[1])
-				return version, nil
-			}
-		}
-	}
-
 	return "0.0.0", errors.New("No version found")
 }
 
@@ -222,21 +187,6 @@ func (r NewRelVer) getMakefileVersion(makefile []byte) (string, error) {
 			parts := strings.Split(scanner.Text(), "=")
 
 			v := strings.TrimSpace(parts[1])
-			if v != "" {
-				return v, nil
-			}
-		}
-	}
-	return "0.0.0", errors.New("No version found")
-}
-
-func (r NewRelVer) getCMakeVersion(cmake []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(cmake)))
-	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), " VERSION ") {
-			re := regexp.MustCompile("project\\s*(([^\\s]+)\\s+VERSION\\s+([.\\d]+(-\\w+)?).*)")
-			matched := re.FindStringSubmatch(scanner.Text())
-			v := strings.TrimSpace(matched[3])
 			if v != "" {
 				return v, nil
 			}
