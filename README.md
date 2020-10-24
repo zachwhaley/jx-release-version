@@ -1,5 +1,7 @@
 # New Release Version
 
+![Go](https://github.com/zachwhaley/new-release-version/workflows/Go/badge.svg)
+
 Returns a new release version based on previous git tags that can be used in a new release.
 
 This is a simple binary that can be used in CD pipelines to read version files (e.g. Makefile, versions.gradle, etc) and return a 'patch' incremented version.
