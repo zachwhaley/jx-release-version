@@ -45,12 +45,6 @@ type NewRelVer struct {
 
 type findVersion func(NewRelVer, []byte) (string, error)
 
-func versionMatcher(key, regex string, group int) findVersion {
-	return func(r NewRelVer, file []byte) (string, error) {
-		return r.matchVersion(file, key, regex, group)
-	}
-}
-
 var versionFiles = map[string]findVersion{
 	"versions.gradle":  versionMatcher("project.version", "^\\s*project\\.version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
 	"build.gradle":     versionMatcher("version", "^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
@@ -62,74 +56,10 @@ var versionFiles = map[string]findVersion{
 	"Makefile":         NewRelVer.getMakefileVersion,
 }
 
-func main() {
-
-	debug := flag.Bool("debug", false, "prints debug into to console")
-	dir := flag.String("directory", ".", "the directory to look for version files with the project version to bump")
-	owner := flag.String("gh-owner", "", "a github repository owner if not running from within a git project")
-	repo := flag.String("gh-repository", "", "a github repository if not running from within a git project")
-	baseVersion := flag.String("base-version", "", "version to use instead of version file")
-	samerelease := flag.Bool("same-release", false, "for support old releases: for example 7.0.x and tag for new release 7.1.x already exist, with `-same-release` argument next version from 7.0.x will be returned ")
-	ver := flag.Bool("version", false, "prints the version")
-	minor := flag.Bool("minor", false, "increment minor version instead of patch")
-	flag.Parse()
-
-	if *ver {
-		printVersion()
-		os.Exit(0)
+func versionMatcher(key, regex string, group int) findVersion {
+	return func(r NewRelVer, file []byte) (string, error) {
+		return r.matchVersion(file, key, regex, group)
 	}
-
-	r := NewRelVer{
-		debug:        *debug,
-		dir:          *dir,
-		ghOwner:      *owner,
-		ghRepository: *repo,
-		samerelease:  *samerelease,
-		baseVersion:  *baseVersion,
-		minor:        *minor,
-	}
-
-	if r.debug {
-		fmt.Println("available environment:")
-		for _, e := range os.Environ() {
-			fmt.Println(e)
-		}
-	}
-
-	gitHubClient := adapters.NewGitHubClient(r.debug)
-	v, err := r.getNewVersionFromTag(gitHubClient)
-	if err != nil {
-		fmt.Println("failed to get new version", err)
-		os.Exit(-1)
-	}
-	fmt.Printf("%s", v)
-}
-
-func printVersion() {
-	fmt.Printf(`Version: %s
-Git Tag: %s
-Build Date: %s
-`, Version, GitTag, BuildDate)
-}
-
-func (r NewRelVer) getVersion() (string, error) {
-	if r.baseVersion != "" {
-		return r.baseVersion, nil
-	}
-	for verFile, verFunc := range versionFiles {
-		if file, err := r.findVersionFile(verFile); err == nil {
-			return verFunc(r, file)
-		}
-	}
-	return "0.0.0", errors.New("No recognised file to obtain current version from")
-}
-
-func (r NewRelVer) findVersionFile(f string) ([]byte, error) {
-	data, err := ioutil.ReadFile(filepath.Join(r.dir, f))
-	if err != nil && r.debug {
-		fmt.Printf("found %s\n", f)
-	}
-	return data, err
 }
 
 func (r NewRelVer) matchVersion(data []byte, key, regex string, group int) (string, error) {
@@ -193,6 +123,107 @@ func (r NewRelVer) getMakefileVersion(makefile []byte) (string, error) {
 		}
 	}
 	return "0.0.0", errors.New("No version found")
+}
+
+func main() {
+
+	debug := flag.Bool("debug", false, "prints debug into to console")
+	dir := flag.String("directory", ".", "the directory to look for version files with the project version to bump")
+	owner := flag.String("gh-owner", "", "a github repository owner if not running from within a git project")
+	repo := flag.String("gh-repository", "", "a github repository if not running from within a git project")
+	baseVersion := flag.String("base-version", "", "version to use instead of version file")
+	samerelease := flag.Bool("same-release", false, "for support old releases: for example 7.0.x and tag for new release 7.1.x already exist, with `-same-release` argument next version from 7.0.x will be returned ")
+	ver := flag.Bool("version", false, "prints the version")
+	minor := flag.Bool("minor", false, "increment minor version instead of patch")
+	flag.Parse()
+
+	if *ver {
+		printVersion()
+		os.Exit(0)
+	}
+
+	r := NewRelVer{
+		debug:        *debug,
+		dir:          *dir,
+		ghOwner:      *owner,
+		ghRepository: *repo,
+		samerelease:  *samerelease,
+		baseVersion:  *baseVersion,
+		minor:        *minor,
+	}
+
+	if r.debug {
+		fmt.Println("available environment:")
+		for _, e := range os.Environ() {
+			fmt.Println(e)
+		}
+	}
+
+	gitHubClient := adapters.NewGitHubClient(r.debug)
+	v, err := r.getNewVersionFromTag(gitHubClient)
+	if err != nil {
+		fmt.Println("failed to get new version", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("%s", v)
+}
+
+func printVersion() {
+	fmt.Printf(`Version: %s
+Git Tag: %s
+Build Date: %s
+`, Version, GitTag, BuildDate)
+}
+
+func (r NewRelVer) getNewVersionFromTag(gitClient domain.GitClient) (string, error) {
+
+	// get the latest github tag
+	tag, err := r.getLatestTag(gitClient)
+	if err != nil && tag == "" {
+		return "", err
+	}
+	sv, err := semver.NewVersion(tag)
+	if err != nil {
+		return "", err
+	}
+
+	if r.minor {
+		sv.BumpMinor()
+	} else {
+		sv.BumpPatch()
+	}
+
+	majorVersion := sv.Major
+	minorVersion := sv.Minor
+	patchVersion := sv.Patch
+
+	// check if major or minor version has been changed
+	baseVersion, err := r.getVersion()
+	if err != nil {
+		return fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion), nil
+	}
+
+	// first use go-version to turn into a proper version, this handles 1.0-SNAPSHOT which semver doesn't
+	tmpVersion, err := version.NewVersion(baseVersion)
+	if err != nil {
+		return fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion), nil
+	}
+	bsv, err := semver.NewVersion(tmpVersion.String())
+	if err != nil {
+		return "", err
+	}
+	baseMajorVersion := bsv.Major
+	baseMinorVersion := bsv.Minor
+	basePatchVersion := bsv.Patch
+
+	if baseMajorVersion > majorVersion ||
+		(baseMajorVersion == majorVersion &&
+			(baseMinorVersion > minorVersion) || (baseMinorVersion == minorVersion && basePatchVersion > patchVersion)) {
+		majorVersion = baseMajorVersion
+		minorVersion = baseMinorVersion
+		patchVersion = basePatchVersion
+	}
+	return fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion), nil
 }
 
 func (r NewRelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
@@ -305,55 +336,24 @@ func (r NewRelVer) getLatestTag(gitClient domain.GitClient) (string, error) {
 	return versions[latest-1].String(), nil
 }
 
-func (r NewRelVer) getNewVersionFromTag(gitClient domain.GitClient) (string, error) {
+func (r NewRelVer) getVersion() (string, error) {
+	if r.baseVersion != "" {
+		return r.baseVersion, nil
+	}
+	for verFile, verFunc := range versionFiles {
+		if file, err := r.findVersionFile(verFile); err == nil {
+			return verFunc(r, file)
+		}
+	}
+	return "0.0.0", errors.New("No recognised file to obtain current version from")
+}
 
-	// get the latest github tag
-	tag, err := r.getLatestTag(gitClient)
-	if err != nil && tag == "" {
-		return "", err
+func (r NewRelVer) findVersionFile(f string) ([]byte, error) {
+	data, err := ioutil.ReadFile(filepath.Join(r.dir, f))
+	if err != nil && r.debug {
+		fmt.Printf("found %s\n", f)
 	}
-	sv, err := semver.NewVersion(tag)
-	if err != nil {
-		return "", err
-	}
-
-	if r.minor {
-		sv.BumpMinor()
-	} else {
-		sv.BumpPatch()
-	}
-
-	majorVersion := sv.Major
-	minorVersion := sv.Minor
-	patchVersion := sv.Patch
-
-	// check if major or minor version has been changed
-	baseVersion, err := r.getVersion()
-	if err != nil {
-		return fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion), nil
-	}
-
-	// first use go-version to turn into a proper version, this handles 1.0-SNAPSHOT which semver doesn't
-	tmpVersion, err := version.NewVersion(baseVersion)
-	if err != nil {
-		return fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion), nil
-	}
-	bsv, err := semver.NewVersion(tmpVersion.String())
-	if err != nil {
-		return "", err
-	}
-	baseMajorVersion := bsv.Major
-	baseMinorVersion := bsv.Minor
-	basePatchVersion := bsv.Patch
-
-	if baseMajorVersion > majorVersion ||
-		(baseMajorVersion == majorVersion &&
-			(baseMinorVersion > minorVersion) || (baseMinorVersion == minorVersion && basePatchVersion > patchVersion)) {
-		majorVersion = baseMajorVersion
-		minorVersion = baseMinorVersion
-		patchVersion = basePatchVersion
-	}
-	return fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion), nil
+	return data, err
 }
 
 func isMajorMinorTheSame(v1 string, v2 string) (bool, error) {
