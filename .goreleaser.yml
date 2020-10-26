@@ -15,3 +15,6 @@ archives:
       windows: Windows
       amd64: 64-bit
     format: zip
+
+release:
+  draft: true
