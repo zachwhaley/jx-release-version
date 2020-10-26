@@ -32,6 +32,17 @@ func TestBuildGradle(t *testing.T) {
 	assert.Equal(t, "1.2.3-SNAPSHOT", v, "error with getVersion for a build.gradle")
 }
 
+func TestPomXML(t *testing.T) {
+	r := NewRelVer{
+		dir: "test-resources/java/pom.xml",
+	}
+	v, err := r.getVersion()
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, "1.0-SNAPSHOT", v, "error with getVersion for a build.gradle")
+}
+
 func TestBuildGradleKTS(t *testing.T) {
 	r := NewRelVer{
 		dir: "test-resources/kotlin",
@@ -69,7 +80,7 @@ func TestSetupCfg(t *testing.T) {
 func TestSetupPy(t *testing.T) {
 
 	r := NewRelVer{
-		dir: "test-resources/python/standard",
+		dir: "test-resources/python/setup.py",
 	}
 	v, err := r.getVersion()
 
@@ -81,7 +92,7 @@ func TestSetupPy(t *testing.T) {
 func TestSetupPyNested(t *testing.T) {
 
 	r := NewRelVer{
-		dir: "test-resources/python/nested",
+		dir: "test-resources/python/setup.py/nested",
 	}
 	v, err := r.getVersion()
 
@@ -93,7 +104,7 @@ func TestSetupPyNested(t *testing.T) {
 func TestSetupPyOneLine(t *testing.T) {
 
 	r := NewRelVer{
-		dir: "test-resources/python/one_line",
+		dir: "test-resources/python/setup.py/one_line",
 	}
 	v, err := r.getVersion()
 

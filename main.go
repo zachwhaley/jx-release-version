@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,6 +31,61 @@ var GitTag string
 // BuildDate is the date when the build was created
 var BuildDate string
 
+type findVersion func([]byte) (string, error)
+
+const versionRegex = `[\.\d]+(-\w+)?`
+
+var versionFiles = map[string]findVersion{
+	"versions.gradle":  versionMatcher(fmt.Sprintf(`(?m)project\.version\s*=\s*['"](%s)['"]$`, versionRegex), 1),
+	"build.gradle":     versionMatcher(fmt.Sprintf(`(?m)^version\s*=\s*['"](%s)['"]$`, versionRegex), 1),
+	"build.gradle.kts": versionMatcher(fmt.Sprintf(`(?m)^version\s*=\s*['"](%s)['"]$`, versionRegex), 1),
+	"pom.xml":          unmarshalXMLVersion,
+	"package.json":     unmarshalJSONVersion,
+	"setup.cfg":        versionMatcher(fmt.Sprintf(`(?m)^version\s*=\s*(%s)$`, versionRegex), 1),
+	"setup.py":         versionMatcher(fmt.Sprintf(`(?ms)setup\(.*\s+version\s*=\s*['"](%s)['"].*\)$`, versionRegex), 1),
+	"CMakeLists.txt":   versionMatcher(fmt.Sprintf(`(?ms)^project\s*\(.*\s+VERSION\s+(%s).*\)$`, versionRegex), 1),
+	"Makefile":         versionMatcher(fmt.Sprintf(`(?m)^VERSION\s*:=\s*(%s)$`, versionRegex), 1),
+}
+
+func versionMatcher(regex string, group int) findVersion {
+	return func(file []byte) (string, error) {
+		return matchVersion(file, regex, group)
+	}
+}
+
+func matchVersion(data []byte, regex string, group int) (string, error) {
+	re := regexp.MustCompile(regex)
+	matched := re.FindSubmatch(data)
+	if len(matched) > 0 {
+		version := strings.TrimSpace(string(matched[group]))
+		return version, nil
+	}
+	return "0.0.0", errors.New("No version found")
+}
+
+func unmarshalJSONVersion(data []byte) (string, error) {
+	var project struct {
+		Version string `json:"version"`
+	}
+	json.Unmarshal(data, &project)
+	if project.Version != "" {
+		return project.Version, nil
+	}
+	return "0.0.0", errors.New("No version found")
+}
+
+func unmarshalXMLVersion(data []byte) (string, error) {
+	var project struct {
+		Version string `xml:"version"`
+	}
+	xml.Unmarshal(data, &project)
+	if project.Version != "" {
+		return project.Version, nil
+	}
+	return "0.0.0", errors.New("No version found")
+}
+
+// NewRelVer is the release version config
 type NewRelVer struct {
 	dryrun       bool
 	debug        bool
@@ -40,88 +95,6 @@ type NewRelVer struct {
 	samerelease  bool
 	baseVersion  string
 	minor        bool
-}
-
-type findVersion func(NewRelVer, []byte) (string, error)
-
-var versionFiles = map[string]findVersion{
-	"versions.gradle":  versionMatcher("project.version", "^\\s*project\\.version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
-	"build.gradle":     versionMatcher("version", "^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
-	"build.gradle.kts": versionMatcher("version", "^version\\s*=\\s*['\"]([.\\d]+(-\\w+)?)['\"]", 1),
-	"package.json":     NewRelVer.getPackageJSONVersion,
-	"setup.cfg":        versionMatcher("version", "^version\\s*=\\s*([.\\d]+(-\\w+)?)", 1),
-	"setup.py":         NewRelVer.getSetupPyVersion,
-	"CMakeLists.txt":   versionMatcher(" VERSION ", "project\\s*(([^\\s]+)\\s+VERSION\\s+([.\\d]+(-\\w+)?).*)", 3),
-	"Makefile":         NewRelVer.getMakefileVersion,
-}
-
-func versionMatcher(key, regex string, group int) findVersion {
-	return func(r NewRelVer, file []byte) (string, error) {
-		return r.matchVersion(file, key, regex, group)
-	}
-}
-
-func (r NewRelVer) matchVersion(data []byte, key, regex string, group int) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(data)))
-	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), key) {
-			re := regexp.MustCompile(regex)
-			matched := re.FindStringSubmatch(scanner.Text())
-			if len(matched) > 0 {
-				version := strings.TrimSpace(matched[group])
-				return version, nil
-			}
-		}
-	}
-	return "0.0.0", errors.New("No version found")
-}
-
-func (r NewRelVer) getPackageJSONVersion(pkgjson []byte) (string, error) {
-	var project struct {
-		Version string `xml:"version"`
-	}
-	_ = json.Unmarshal(pkgjson, &project)
-	if project.Version != "" {
-		return project.Version, nil
-	}
-	return "0.0.0", errors.New("No version found")
-}
-
-func (r NewRelVer) getSetupPyVersion(setup []byte) (string, error) {
-	// Regex to find the call to `setup(..., version='1.2.3', ...)`
-	re := regexp.MustCompile("setup\\((.|\\n)*version\\s*=\\s*'(\\d|\\.)*'([^\\)]|\\n)*\\)")
-	setupCallBytes := re.Find(setup)
-
-	if len(setupCallBytes) > 0 {
-
-		// Regex to find the argument `version='1.2.3'`
-		versionRe := regexp.MustCompile("version\\s*=\\s*'(\\d*|\\.)*'")
-
-		version := string(versionRe.Find(setupCallBytes))
-
-		parts := strings.Split(strings.Replace(version, " ", "", -1), "=")
-		v := strings.TrimPrefix(strings.TrimSuffix(parts[1], "'"), "'")
-
-		if v != "" {
-			return v, nil
-		}
-	}
-	return "0.0.0", errors.New("No version found")
-}
-
-func (r NewRelVer) getMakefileVersion(makefile []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(makefile)))
-	for scanner.Scan() {
-		if strings.HasPrefix(scanner.Text(), "VERSION") || strings.HasPrefix(scanner.Text(), "VERSION ") || strings.HasPrefix(scanner.Text(), "VERSION:") || strings.HasPrefix(scanner.Text(), "VERSION=") {
-			parts := strings.Split(scanner.Text(), "=")
-
-			v := strings.TrimSpace(parts[1])
-			if v != "" {
-				return v, nil
-			}
-		}
-	}
-	return "0.0.0", errors.New("No version found")
 }
 
 func main() {
@@ -341,7 +314,7 @@ func (r NewRelVer) getVersion() (string, error) {
 	}
 	for verFile, verFunc := range versionFiles {
 		if file, err := r.findVersionFile(verFile); err == nil {
-			return verFunc(r, file)
+			return verFunc(file)
 		}
 	}
 	return "0.0.0", errors.New("No recognised file to obtain current version from")
