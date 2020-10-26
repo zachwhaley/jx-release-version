@@ -22,15 +22,6 @@ import (
 	"github.com/zachwhaley/new-release-version/domain"
 )
 
-// Version is the build version
-var Version string
-
-// GitTag is the git tag of the build
-var GitTag string
-
-// BuildDate is the date when the build was created
-var BuildDate string
-
 type findVersion func([]byte) (string, error)
 
 const versionRegex = `[\.\d]+(-\w+)?`
@@ -97,6 +88,12 @@ type NewRelVer struct {
 	minor        bool
 }
 
+var (
+	Version   = "dev"
+	GitTag    = "none"
+	BuildDate = "unknown"
+)
+
 func main() {
 
 	debug := flag.Bool("debug", false, "prints debug into to console")
@@ -110,7 +107,7 @@ func main() {
 	flag.Parse()
 
 	if *ver {
-		printVersion()
+		fmt.Printf("Version: %s\nGit commit: %s\nBuild Date: %s\n", Version, GitTag, BuildDate)
 		os.Exit(0)
 	}
 
@@ -138,13 +135,6 @@ func main() {
 		os.Exit(-1)
 	}
 	fmt.Printf("%s", v)
-}
-
-func printVersion() {
-	fmt.Printf(`Version: %s
-Git Tag: %s
-Build Date: %s
-`, Version, GitTag, BuildDate)
 }
 
 func (r NewRelVer) getNewVersionFromTag(gitClient domain.GitClient) (string, error) {
