@@ -1,26 +1,25 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
-
-	"github.com/zachwhaley/new-release-version/adapters"
-	"github.com/zachwhaley/new-release-version/domain"
-
-	"github.com/coreos/go-semver/semver"
-	"github.com/hashicorp/go-version"
-
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
+
+	"github.com/coreos/go-semver/semver"
+	"github.com/hashicorp/go-version"
+
+	"github.com/zachwhaley/new-release-version/adapters"
+	"github.com/zachwhaley/new-release-version/domain"
 )
 
 // Version is the build version
