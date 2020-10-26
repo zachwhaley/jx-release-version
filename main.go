@@ -134,7 +134,7 @@ func main() {
 		fmt.Println("failed to get new version", err)
 		os.Exit(-1)
 	}
-	fmt.Printf("%s", v)
+	fmt.Print(v)
 }
 
 func (r NewRelVer) getNewVersionFromTag(gitClient domain.GitClient) (string, error) {
@@ -307,7 +307,7 @@ func (r NewRelVer) getVersion() (string, error) {
 			return verFunc(file)
 		}
 	}
-	return "0.0.0", errors.New("No recognised file to obtain current version from")
+	return "0.0.0", errors.New("No version file found to get current version from")
 }
 
 func (r NewRelVer) findVersionFile(f string) ([]byte, error) {
