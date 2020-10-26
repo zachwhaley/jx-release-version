@@ -12,9 +12,14 @@ This helps in continuous delivery if you want an automatic release when a change
 
 Using a git tag to work out the next release version is better than traditional approaches of storing it in a VERSION file or updating a pom.xml.  If a major or minor version increase is required then still update the file and `new-release-version` will use you new version.
 
-## Prerequisits
+## Prerequisites
 
+- [Go](https://go.dev/)
 - `git` to be available on your `$PATH`
+
+## Install
+
+    go get github.com/zachwhaley/new-release-version
 
 ## Examples
 
