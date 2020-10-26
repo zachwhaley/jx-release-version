@@ -88,11 +88,7 @@ type NewRelVer struct {
 	minor        bool
 }
 
-var (
-	Version   = "dev"
-	GitTag    = "none"
-	BuildDate = "unknown"
-)
+var Version = "dev"
 
 func main() {
 
@@ -107,7 +103,7 @@ func main() {
 	flag.Parse()
 
 	if *ver {
-		fmt.Printf("Version: %s\nGit commit: %s\nBuild Date: %s\n", Version, GitTag, BuildDate)
+		fmt.Printf("new-release-version %s\n", Version)
 		os.Exit(0)
 	}
 
@@ -307,7 +303,7 @@ func (r NewRelVer) getVersion() (string, error) {
 			return verFunc(file)
 		}
 	}
-	return "0.0.0", errors.New("No version file found to get current version from")
+	return "0.0.0", errors.New("No version file found")
 }
 
 func (r NewRelVer) findVersionFile(f string) ([]byte, error) {
