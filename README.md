@@ -1,3 +1,5 @@
+Moved to https://github.com/trendmicro/new-release-version
+
 # New Release Version
 
 ![Go](https://github.com/zachwhaley/new-release-version/workflows/Go/badge.svg)
